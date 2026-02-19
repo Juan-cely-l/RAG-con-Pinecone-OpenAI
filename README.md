@@ -1,0 +1,1 @@
+# RAG-con-Pinecone-OpenAI
