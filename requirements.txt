@@ -1,0 +1,6 @@
+langchain>=0.3.0
+langchain-google-genai>=2.0.0
+langchain-pinecone>=0.2.0
+langchain-text-splitters>=0.3.0
+pinecone>=5.0.0
+python-dotenv>=1.0.0
