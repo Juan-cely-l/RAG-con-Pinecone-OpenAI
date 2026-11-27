@@ -109,7 +109,9 @@ Se usa `RecursiveCharacterTextSplitter` con separadores `["\n\n", "\n", ". ", " 
 - **400/60 (alternativa)**: el contexto es más preciso, pero fragmenta listas como las faltas o las categorías de peso y duplica el número de vectores.
 
 <!-- RESULTS:START chunking -->
-**Experimento** (`eval/run_eval.py`, top_k = 4): cs800 obtuvo Hit@4 = {{HIT@4_cs800}} y MRR@4 = {{MRR@4_cs800}}, frente a Hit@4 = {{HIT@4_cs400}} y MRR@4 = {{MRR@4_cs400}} en cs400. La cobertura de keywords fue {{KWCOV_cs800}} frente a {{KWCOV_cs400}}. Decisión: {{CHUNKING_DECISION}}.
+**Experimento** (`eval/run_eval.py`, top_k = 4, corrida del 2026-11-27): cs800 obtuvo Hit@4 = 100 % y MRR@4 = 1.00, frente a Hit@4 = 100 % y MRR@4 = 1.00 en cs400. La cobertura de keywords fue 100 % frente a 100 %. El score top-1 medio de las respondibles fue 0.740 (cs800) frente a 0.767 (cs400).
+
+**Decisión: se mantiene 800/120.** Con este corpus el retrieval se satura en ambas configuraciones (la fuente correcta siempre está en el top-1), así que el experimento no muestra una ganancia de calidad que justifique duplicar los vectores (24 frente a 51). cs400 separa algo mejor los scores de respondibles y de fuera de alcance; se anota como línea de trabajo futuro si el corpus crece.
 <!-- RESULTS:END chunking -->
 
 ### 4.3 Embeddings y métrica
@@ -124,7 +126,7 @@ Se usa `RecursiveCharacterTextSplitter` con separadores `["\n\n", "\n", ". ", " 
 - Con `k = 2` el contexto se reduce a la mitad (menos tokens y menos latencia), pero se pierde la fuente correcta cuando aparece en las posiciones 3 o 4.
 
 <!-- RESULTS:START topk -->
-**Experimento** (derivado de la misma lista ordenada, cs800): Hit@2 = {{HIT@2_cs800}} y Hit@4 = {{HIT@4_cs800}}. Decisión: {{TOPK_DECISION}}.
+**Experimento** (derivado de la misma lista ordenada, cs800): Hit@2 = 100 % y Hit@4 = 100 %. **Decisión: se mantiene top_k = 4.** En este dataset k = 2 ya encuentra la fuente esperada, pero 6 preguntas aceptan dos archivos fuente y k = 4 deja margen para preguntas que combinan temas. El costo extra es bajo: la latencia media de respuesta fue 2.09 s (p95 4.56 s).
 <!-- RESULTS:END topk -->
 
 ### 4.5 Umbral de score (abstención determinista)
@@ -132,7 +134,14 @@ Se usa `RecursiveCharacterTextSplitter` con separadores `["\n\n", "\n", ". ", " 
 Si el score coseno del mejor chunk es menor que `RAG_SCORE_THRESHOLD`, el sistema responde con el mensaje de abstención **sin llamar al LLM**. Esto ahorra costo y latencia y elimina la posibilidad de alucinar en preguntas claramente ajenas al dominio (p. ej. boxeo). Las preguntas cercanas al dominio, con el mismo vocabulario pero sin el dato en el corpus, dependen de la segunda barrera: la instrucción de abstención en el prompt.
 
 <!-- RESULTS:START threshold -->
-**Calibración**: `run_eval.py` busca el valor que maximiza la exactitud balanceada entre "no abstenerse en respondibles" y "abstenerse en fuera de alcance". Umbral sugerido: {{THRESHOLD_SUGGESTED}}. Valor adoptado: `RAG_SCORE_THRESHOLD = {{THRESHOLD_FINAL}}` (el default del código antes de calibrar era 0.5).
+**Calibración** (`run_eval.py` maximiza la exactitud balanceada entre "no abstenerse en respondibles" y "abstenerse en fuera de alcance" usando solo el score top-1):
+
+| Config | Top-1 respondibles (min / media) | Top-1 fuera de alcance (min / máx) | Umbral sugerido | Respondibles que conserva |
+|---|---|---|---|---|
+| cs800 | 0.642 / 0.740 | 0.604 / 0.707 | 0.708 | 76 % |
+| cs400 | 0.685 / 0.767 | 0.609 / 0.718 | 0.720 | 86 % |
+
+Los rangos se **solapan**: ningún umbral separa perfectamente ambos grupos, y el umbral "óptimo" haría que el sistema dejara de responder preguntas válidas. **Valor adoptado: `RAG_SCORE_THRESHOLD = 0.6`**. Queda por debajo de todas las respondibles observadas, con margen, y sirve solo para descartar preguntas claramente ajenas al dominio sin gastar una llamada al LLM. Con 0.6, 1 ítem(s) quedarían bajo el umbral (`adv-01` (adversarial, score 0.599)). Esos ítems ya se abstenían en la corrida, así que ahora solo se abstendrían antes, sin llamar al LLM: **las métricas no cambian**. Las preguntas cercanas al dominio las resuelve la segunda barrera (la instrucción de abstención en el prompt), que logró 100 % de abstención correcta.
 <!-- RESULTS:END threshold -->
 
 ### 4.6 Presupuesto de contexto (6000 caracteres)
@@ -207,13 +216,13 @@ Las variables se leen del entorno y de `.env`. Las variables ya definidas en el 
 | `PINECONE_CLOUD` | No | `aws` | Nube del índice serverless (solo al crearlo). |
 | `PINECONE_REGION` | No | `us-east-1` | Región del índice serverless (solo al crearlo). |
 | `PINECONE_NAMESPACE` | No | *(vacío = default)* | Namespace dentro del índice. |
-| `GEMINI_CHAT_MODEL` | No | `gemini-3.5-flash` | Modelo de generación. |
+| `GEMINI_CHAT_MODEL` | No | `gemini-3.5-flash-lite` | Modelo de generación (elegido por la cuota del tier gratuito; ver Limitaciones). |
 | `GEMINI_EMBEDDING_MODEL` | No | `models/gemini-embedding-001` | Modelo de embeddings. |
 | `RAG_TEMPERATURE` | No | `0.2` | Temperatura del modelo de chat. |
 | `RAG_CHUNK_SIZE` | No | `800` | Tamaño de chunk en caracteres. Si lo cambias, ejecuta `python ingest.py --reset`. |
 | `RAG_CHUNK_OVERLAP` | No | `120` | Solapamiento entre chunks. Debe ser menor que `RAG_CHUNK_SIZE`. |
 | `RAG_TOP_K` | No | `4` | Chunks recuperados por pregunta. |
-| `RAG_SCORE_THRESHOLD` | No | `0.5` | Score coseno mínimo del top-1 para responder (rango 0–1). |
+| `RAG_SCORE_THRESHOLD` | No | `0.6` | Score coseno mínimo del top-1 para responder (rango 0–1). Calibrado con la evaluación (ver 4.5). |
 | `RAG_MAX_QUESTION_CHARS` | No | `500` | Longitud máxima de la pregunta, después de normalizarla. |
 | `RAG_MAX_CONTEXT_CHARS` | No | `6000` | Presupuesto de caracteres de contexto enviado al LLM. |
 | `RAG_MAX_RETRIES` | No | `4` | Reintentos adicionales ante 429, 5xx y timeouts. |
@@ -355,7 +364,7 @@ Opciones: `--dataset`, `--configs` (`cs800` = 800/120, `cs400` = 400/60), `--jud
 - Cada configuración se ingesta en su propio namespace (`exp-<config>`, con reset), así que **no toca el namespace de producción**.
 - Después de cada ítem se guarda `results.partial.json`, por lo que si se agota la cuota no se pierde lo ya evaluado.
 - **Costo y tiempo aproximados** (según [`eval/README.md`](eval/README.md)):
-  - Corrida completa: unos 108 embeddings de consulta y como máximo 75 llamadas a `gemini-3.5-flash` (54 de generación y 21 del juez). Tarda unos 12–15 minutos con `--sleep 4`.
+  - Corrida completa: unos 108 embeddings de consulta y como máximo 54 llamadas de generación (`gemini-3.5-flash-lite`) y 21 del juez (`gemini-3.1-flash-lite`, cuota separada). En la corrida real tardó unos 5 minutos con `--sleep 4`.
   - Con `--no-judge` y una sola configuración: unos 6 minutos.
 
 ### 8.2 Dataset
@@ -389,28 +398,40 @@ Objetivo de aceptación (`docs/SPEC.md`, CA5 y CA6): Hit@4 ≥ 0.85, abstención
 ### 8.4 Resultados
 
 <!-- RESULTS:START summary -->
-Corrida del {{EVAL_DATE}} (`gemini-3.5-flash` + `gemini-embedding-001`, top_k = 4).
+Corrida real del 2026-11-27: generador `gemini-3.5-flash-lite`, embeddings `models/gemini-embedding-001`, juez `gemini-3.1-flash-lite`, top_k = 4, 29 ítems (21 answerable, 5 out_of_scope, 1 adversarial, 2 invalid).
 
 | Métrica | cs800 (800/120) | cs400 (400/60) |
 |---|---|---|
-| Chunks indexados | {{CHUNKS_cs800}} | {{CHUNKS_cs400}} |
-| Hit@1 | {{HIT@1_cs800}} | {{HIT@1_cs400}} |
-| Hit@2 | {{HIT@2_cs800}} | {{HIT@2_cs400}} |
-| Hit@4 | {{HIT@4_cs800}} | {{HIT@4_cs400}} |
-| MRR@4 | {{MRR@4_cs800}} | {{MRR@4_cs400}} |
-| Abstención correcta (OOS) | {{ABST_OOS_cs800}} | {{ABST_OOS_cs400}} |
-| Falsa abstención (respondibles) | {{FALSE_ABST_cs800}} | {{FALSE_ABST_cs400}} |
-| Cobertura de keywords | {{KWCOV_cs800}} | {{KWCOV_cs400}} |
-| Tasa de citación | {{CITE_cs800}} | {{CITE_cs400}} |
-| Adversarial pasa | {{ADV_cs800}} | {{ADV_cs400}} |
-| Entrada inválida rechazada | {{INV_cs800}} | {{INV_cs400}} |
-| Latencia media / p95 (s) | {{LAT_MEAN_cs800}} / {{LAT_P95_cs800}} | {{LAT_MEAN_cs400}} / {{LAT_P95_cs400}} |
-| Juez: fidelidad / relevancia (1–5) | {{FAITH_cs800}} / {{REL_cs800}} | – (juez solo en cs800) |
+| Chunks indexados | 24 | 51 |
+| Hit@1 | 100 % | 100 % |
+| Hit@2 | 100 % | 100 % |
+| Hit@4 | 100 % | 100 % |
+| MRR@4 | 1.00 | 1.00 |
+| Abstención correcta (fuera de alcance) | 100 % | 100 % |
+| Falsa abstención (respondibles) | 5 % | 5 % |
+| Cobertura de keywords | 100 % | 100 % |
+| Tasa de citación | 100 % | 100 % |
+| Prompt injection contenida | 100 % | 100 % |
+| Entrada inválida rechazada | 100 % | 100 % |
+| Latencia media / p95 (s) | 2.09 / 4.56 | 2.49 / 5.28 |
+| Juez: fidelidad / relevancia (1–5) | 5.00 / 5.00 (n = 20) | – (juez solo en cs800) |
+| Errores de ejecución | 0 | 0 |
 
-Umbral sugerido por la calibración: {{THRESHOLD_SUGGESTED}}. CA5: {{CA5_STATUS}}. CA6: {{CA6_STATUS}}.
+Criterios de aceptación (`docs/SPEC.md`): **CA5** (Hit@4 ≥ 85 % y abstención correcta ≥ 80 %): cumple. **CA6** (toda respuesta no abstenida cita una fuente): cumple.
+
+**Iteración guiada por la evaluación (prompt de idioma).** En la primera corrida completa (`eval/results/history/`) el modelo respondía en español a preguntas en inglés; la causa fue que el mensaje fijo de abstención, en español, sesgaba el idioma. Se hizo explícita la regla de idioma en el system prompt y se volvió a evaluar:
+
+| Versión del prompt | Keywords cs800 | Keywords cs400 | Falsa abstención cs800 | Falsa abstención cs400 |
+|---|---|---|---|---|
+| v1 (regla de idioma implícita) | 88 % | 91 % | 0 % | 0 % |
+| v2 (regla de idioma explícita, actual) | 100 % | 100 % | 5 % | 5 % |
+
+v2 corrige el idioma, pero en cada configuración aparece una abstención incorrecta en una pregunta en español (`ans-04` en cs800, `ans-13` en cs400). Al repetir ambas preguntas 3 veces cada una, el sistema respondió bien las 6 veces, así que es **no determinismo** del modelo lite (ignora `temperature`), no un fallo sistemático. Ver Limitaciones.
 <!-- RESULTS:END summary -->
 
 El reporte completo está en [`eval/results/REPORT.md`](eval/results/REPORT.md). Incluye los experimentos, la calibración del umbral, ejemplos de éxito, todos los fallos observados y las limitaciones detectadas automáticamente.
+
+Los números de esta sección y de las decisiones 4.2, 4.4 y 4.5 se generan con `python eval/fill_readme.py` a partir de `eval/results/results.json`, y `python eval/fill_readme.py --check` verifica que el README esté sincronizado con la última corrida. La corrida anterior, con el prompt v1, se conserva en `eval/results/history/`.
 
 ## 9. Limitaciones y trabajo futuro
 
@@ -420,7 +441,10 @@ El reporte completo está en [`eval/results/REPORT.md`](eval/results/REPORT.md).
 - **Las reglas varían por comisión atlética** y cambian con el tiempo (p. ej. los codazos 12-to-6). El corpus no distingue jurisdicciones ni fechas.
 - **Dataset pequeño** (29 ítems): una pregunta equivale a unos 5 puntos porcentuales, así que las diferencias entre configuraciones no son estadísticamente concluyentes.
 - **La cobertura de keywords es léxica**: penaliza paráfrasis válidas y puede premiar respuestas que mencionan el término sin ser correctas.
-- **El juez LLM es de la misma familia** (Gemini) que el generador. Esto puede inflar las puntuaciones por sesgo de autoevaluación, y el juez no se validó contra anotación humana.
+- **El juez LLM es de la misma familia** (Gemini): se usa un modelo distinto al generador (`gemini-3.1-flash-lite` frente a `gemini-3.5-flash-lite`) para reducir el sesgo de autoevaluación, pero sigue siendo Gemini y no se validó contra anotación humana.
+- **Modelo lite por cuota**: el tier gratuito de `gemini-3.5-flash` permite solo 20 solicitudes diarias, y la primera evaluación lo agotó. Por eso el default es `gemini-3.5-flash-lite`, que ignora `temperature` (usa sus valores fijos de muestreo).
+- **No determinismo del generador**: el modelo lite a veces se abstiene en una pregunta respondible (1 de 21 por corrida; las mismas preguntas se respondieron bien en 6 de 6 repeticiones). El sistema falla del lado seguro (no inventa), pero una corrida puede variar ±5 puntos en falsa abstención.
+- **Retrieval saturado**: con 7 archivos, la fuente correcta casi siempre queda en el top-1, así que el experimento de chunking y top_k discrimina poco. Un corpus mayor haría más informativa la comparación.
 - **El umbral depende del modelo de embeddings**: si se cambia el modelo, hay que recalibrarlo. Un umbral por score solo filtra preguntas claramente ajenas al dominio.
 - **Límites del free tier**: puede haber errores 429 que se mitigan con backoff y `--sleep`, pero alargan la latencia y la duración de la evaluación.
 

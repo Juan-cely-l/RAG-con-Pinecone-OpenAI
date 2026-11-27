@@ -55,5 +55,5 @@ Por configuración, con 27 preguntas que llegan a la API (las 2 inválidas no ll
 - Juez: hasta 21 llamadas al chat (solo cs800).
 
 Total con las dos configuraciones: ~108 embeddings de consulta, ≤ 54 llamadas de generación y ≤ 21 del juez
-(≤ 75 llamadas a `gemini-3.5-flash`). Con `--sleep 4` tarda unos 12–15 minutos. Con `--no-judge` y una
+(≤ 54 llamadas al generador y ≤ 21 al juez, que usa otro modelo con cuota propia; `--judge-model`). Con `--sleep 4` tarda unos 12–15 minutos. Con `--no-judge` y una
 sola configuración son ~54 embeddings y ≤ 27 llamadas al chat (~6 minutos).
