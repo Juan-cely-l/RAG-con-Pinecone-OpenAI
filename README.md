@@ -442,6 +442,7 @@ Los números de esta sección y de las decisiones 4.2, 4.4 y 4.5 se generan con 
 ### Limitaciones
 
 - **Corpus pequeño y no oficial**: son 7 resúmenes educativos (unos 16 KB), no el reglamento oficial. No deben usarse como autoridad en una pelea real.
+- **Corpus no verificado contra el texto oficial de la ABC**: los resúmenes se escribieron sin cotejarlos con las Unified Rules publicadas por la Association of Boxing Commissions. Hay tres puntos de exactitud incierta: la redacción exacta de cuándo se otorga un 10-8, el caso de 5 rounds en la decisión técnica y si las tarjetas siempre se recogen después de cada round. Ver Trabajo futuro.
 - **Las reglas varían por comisión atlética** y cambian con el tiempo (p. ej. los codazos 12-to-6). El corpus no distingue jurisdicciones ni fechas.
 - **Dataset pequeño** (29 ítems): una pregunta equivale a unos 5 puntos porcentuales, así que las diferencias entre configuraciones no son estadísticamente concluyentes.
 - **La cobertura de keywords es léxica**: penaliza paráfrasis válidas y puede premiar respuestas que mencionan el término sin ser correctas.
@@ -454,6 +455,7 @@ Los números de esta sección y de las decisiones 4.2, 4.4 y 4.5 se generan con 
 
 ### Trabajo futuro
 
+- **Verificar el corpus contra el reglamento oficial de la ABC** y corregir los puntos inciertos: (1) la redacción de los criterios para un 10-8 en `scoring_criteria_detail.md`; (2) el umbral de la decisión técnica en peleas de 5 rounds en `fight_outcomes_and_officials.md`; (5) si las tarjetas se recogen después de cada round. Después habrá que volver a correr `eval/run_eval.py`, porque esos chunks alimentan preguntas del dataset.
 - **Reranker** (cross-encoder) sobre el top-k para mejorar Hit@1 y la señal de abstención.
 - **Búsqueda híbrida** (BM25 + denso) para términos exactos como "12-to-6" o "10-8".
 - **Corpus oficial** (PDF de las Unified Rules y de las comisiones) con metadatos de jurisdicción y fecha.
