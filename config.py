@@ -30,7 +30,7 @@ class Settings:
     namespace: str = ""
 
     # Models
-    chat_model: str = "gemini-3.5-flash"
+    chat_model: str = "gemini-3.5-flash-lite"
     embedding_model: str = "models/gemini-embedding-001"
     temperature: float = 0.2
 
@@ -40,7 +40,7 @@ class Settings:
 
     # Retrieval
     top_k: int = 4
-    score_threshold: float = 0.5
+    score_threshold: float = 0.6  # calibrated with eval/ (see README 4.5)
 
     # Limits
     max_question_chars: int = 500

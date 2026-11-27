@@ -72,6 +72,9 @@ class Deps:
     index_poll_delay: float = 10.0
 
 
+
+JUDGE_MODEL: str | None = None  # set from --judge-model in main()
+
 def load_real_deps() -> Deps:
     """Import the real pipeline lazily (only when actually running an evaluation)."""
     from config import load_settings
@@ -80,7 +83,8 @@ def load_real_deps() -> Deps:
     from retry import call_with_retry
 
     def judge(settings: Any, question: str, answer: str, contexts: list[str]) -> dict:
-        llm = get_chat_model(replace(settings, temperature=0.0))
+        # A different model than the generator (own free-tier quota, less self-preference bias).
+        llm = get_chat_model(replace(settings, chat_model=JUDGE_MODEL or settings.chat_model, temperature=0.0))
         prompt = build_judge_prompt(question, answer, contexts)
         response = call_with_retry(
             lambda: llm.invoke(prompt),
@@ -611,7 +615,8 @@ def render_report(results: dict) -> str:
     L: list[str] = []
     L.append("# Reporte de evaluación — Asistente RAG de reglamento MMA\n")
     L.append(f"- Fecha (UTC): {results.get('timestamp')}")
-    L.append(f"- Modelo de chat: `{results.get('chat_model')}` · Embeddings: `{results.get('embedding_model')}`")
+    L.append(f"- Modelo de chat: `{results.get('chat_model')}` · Embeddings: `{results.get('embedding_model')}`"
+             + (f" · Juez: `{results.get('judge_model')}`" if results.get("judge_model") else ""))
     ds = results.get("dataset", {})
     L.append(f"- Dataset: `{ds.get('path')}` — {ds.get('n_items')} ítems ({ds.get('by_type')})")
     L.append(f"- Configuraciones: {', '.join(c['name'] for c in cfgs)} (top_k={EVAL_TOP_K}); "
@@ -822,6 +827,8 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--dataset", default=str(DEFAULT_DATASET), help="JSONL dataset path.")
     p.add_argument("--configs", default="cs800,cs400", help=f"Comma list of presets: {', '.join(PRESETS)}.")
     p.add_argument("--judge", dest="judge", action="store_true", default=True, help="LLM judge on the first config (default).")
+    p.add_argument("--judge-model", default=os.getenv("RAG_JUDGE_MODEL", "gemini-3.1-flash-lite"),
+                   help="Gemini model used as LLM judge (default: gemini-3.1-flash-lite).")
     p.add_argument("--no-judge", dest="judge", action="store_false", help="Disable the LLM judge.")
     p.add_argument("--sleep", type=float, default=4.0, help="Seconds to pause after each API call (free-tier RPM).")
     p.add_argument("--limit", type=int, default=None, help="Evaluate only the first N items.")
@@ -835,6 +842,8 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None, deps: Deps | None = None) -> int:
     args = parse_args(argv)
+    global JUDGE_MODEL
+    JUDGE_MODEL = args.judge_model
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if not args.debug:
@@ -882,6 +891,7 @@ def main(argv: list[str] | None = None, deps: Deps | None = None) -> int:
         "embedding_model": getattr(base, "embedding_model", None),
         "dataset": {"path": os.path.relpath(args.dataset, REPO_ROOT), "n_items": len(items), "by_type": by_type},
         "judge": args.judge,
+        "judge_model": args.judge_model if args.judge else None,
         "sleep_s": args.sleep,
         "configs": [],
     }
