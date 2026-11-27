@@ -2,6 +2,10 @@
 
 Asistente de línea de comandos que responde preguntas sobre reglas, faltas y criterios de puntuación de MMA **usando solo un corpus indexado**, citando el archivo fuente y absteniéndose cuando no tiene evidencia suficiente.
 
+> **Aviso sobre el corpus.** Los documentos de `data/` son **resúmenes no oficiales, escritos con fines académicos** para un proyecto de curso. **No sustituyen el reglamento oficial** (Unified Rules of MMA ni los reglamentos de cada comisión atlética), que varía según la jurisdicción y cambia con el tiempo. No los uses como autoridad para juzgar o arbitrar una pelea real.
+>
+> **Sobre el nombre del repositorio.** El nombre menciona OpenAI porque así lo planteaba el enunciado, pero la implementación usa **Google Gemini** para chat y embeddings. El motivo es el **costo**: el tier gratuito de Gemini permite desarrollar, evaluar y grabar la demo sin pagar. La arquitectura RAG (LangChain + Pinecone + LLM + embeddings) es la misma y no hay ninguna dependencia de OpenAI. Detalle en [§4.9](#49-gemini-en-lugar-de-openai).
+
 ## Tabla de contenidos
 
 1. [Problema](#1-problema)
