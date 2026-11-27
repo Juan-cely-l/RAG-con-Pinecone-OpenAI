@@ -207,7 +207,7 @@ Las variables se leen del entorno y de `.env`. Las variables ya definidas en el 
 | `PINECONE_CLOUD` | No | `aws` | Nube del índice serverless (solo al crearlo). |
 | `PINECONE_REGION` | No | `us-east-1` | Región del índice serverless (solo al crearlo). |
 | `PINECONE_NAMESPACE` | No | *(vacío = default)* | Namespace dentro del índice. |
-| `GEMINI_CHAT_MODEL` | No | `gemini-2.5-flash` | Modelo de generación. |
+| `GEMINI_CHAT_MODEL` | No | `gemini-3.5-flash` | Modelo de generación. |
 | `GEMINI_EMBEDDING_MODEL` | No | `models/gemini-embedding-001` | Modelo de embeddings. |
 | `RAG_TEMPERATURE` | No | `0.2` | Temperatura del modelo de chat. |
 | `RAG_CHUNK_SIZE` | No | `800` | Tamaño de chunk en caracteres. Si lo cambias, ejecuta `python ingest.py --reset`. |
@@ -355,7 +355,7 @@ Opciones: `--dataset`, `--configs` (`cs800` = 800/120, `cs400` = 400/60), `--jud
 - Cada configuración se ingesta en su propio namespace (`exp-<config>`, con reset), así que **no toca el namespace de producción**.
 - Después de cada ítem se guarda `results.partial.json`, por lo que si se agota la cuota no se pierde lo ya evaluado.
 - **Costo y tiempo aproximados** (según [`eval/README.md`](eval/README.md)):
-  - Corrida completa: unos 108 embeddings de consulta y como máximo 75 llamadas a `gemini-2.5-flash` (54 de generación y 21 del juez). Tarda unos 12–15 minutos con `--sleep 4`.
+  - Corrida completa: unos 108 embeddings de consulta y como máximo 75 llamadas a `gemini-3.5-flash` (54 de generación y 21 del juez). Tarda unos 12–15 minutos con `--sleep 4`.
   - Con `--no-judge` y una sola configuración: unos 6 minutos.
 
 ### 8.2 Dataset
@@ -389,7 +389,7 @@ Objetivo de aceptación (`docs/SPEC.md`, CA5 y CA6): Hit@4 ≥ 0.85, abstención
 ### 8.4 Resultados
 
 <!-- RESULTS:START summary -->
-Corrida del {{EVAL_DATE}} (`gemini-2.5-flash` + `gemini-embedding-001`, top_k = 4).
+Corrida del {{EVAL_DATE}} (`gemini-3.5-flash` + `gemini-embedding-001`, top_k = 4).
 
 | Métrica | cs800 (800/120) | cs400 (400/60) |
 |---|---|---|

@@ -30,7 +30,7 @@ class Settings:
     namespace: str = ""
 
     # Models
-    chat_model: str = "gemini-2.5-flash"
+    chat_model: str = "gemini-3.5-flash"
     embedding_model: str = "models/gemini-embedding-001"
     temperature: float = 0.2
 
