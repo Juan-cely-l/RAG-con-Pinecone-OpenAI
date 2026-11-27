@@ -119,6 +119,10 @@ def _validate(settings: Settings, require_keys: bool) -> None:
         raise ConfigError("RAG_SCORE_THRESHOLD must be between 0 and 1.")
     if settings.max_question_chars < 1 or settings.max_context_chars < 1:
         raise ConfigError("RAG_MAX_QUESTION_CHARS and RAG_MAX_CONTEXT_CHARS must be positive.")
+    if settings.request_timeout <= 0:
+        raise ConfigError("RAG_REQUEST_TIMEOUT must be > 0 seconds.")
+    if not 0.0 <= settings.temperature <= 2.0:
+        raise ConfigError("RAG_TEMPERATURE must be between 0 and 2.")
     if settings.max_retries < 0 or settings.retry_base_delay < 0:
         raise ConfigError("RAG_MAX_RETRIES and RAG_RETRY_BASE_DELAY must be >= 0.")
 

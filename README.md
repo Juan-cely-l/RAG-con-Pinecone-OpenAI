@@ -179,15 +179,14 @@ El nombre del repositorio menciona OpenAI porque así lo planteaba el enunciado.
    ```bash
    python -m venv .venv
    source .venv/bin/activate          # Windows: .venv\Scripts\activate
-   pip install -r requirements.txt
-   pip install pytest                 # solo para correr los tests
+   pip install -r requirements.txt    # versiones fijadas, incluye pytest
    ```
 
-   O con `uv`:
+   O con `uv` (recomendado; las versiones se verificaron con Python 3.12):
 
    ```bash
-   uv venv && source .venv/bin/activate
-   uv pip install -r requirements.txt pytest
+   uv venv --python 3.12 && source .venv/bin/activate
+   uv pip install -r requirements.txt
    ```
 
 2. Crea el archivo `.env` a partir de la plantilla y completa tus claves:
@@ -219,15 +218,15 @@ Las variables se leen del entorno y de `.env`. Las variables ya definidas en el 
 | `RAG_MAX_CONTEXT_CHARS` | No | `6000` | Presupuesto de caracteres de contexto enviado al LLM. |
 | `RAG_MAX_RETRIES` | No | `4` | Reintentos adicionales ante 429, 5xx y timeouts. |
 | `RAG_RETRY_BASE_DELAY` | No | `2.0` | Base del backoff exponencial, en segundos. |
-| `RAG_REQUEST_TIMEOUT` | No | `60` | Timeout por llamada de chat a Gemini, en segundos. |
+| `RAG_REQUEST_TIMEOUT` | No | `60` | Timeout por llamada a Gemini (chat y embeddings), en segundos. |
 
 ## 6. Uso
 
 ### 6.1 Ingesta
 
 ```bash
-python ingest.py                         # crea el índice si no existe e indexa data/
-python ingest.py --reset                 # borra el namespace antes de indexar
+python ingest.py                         # crea el índice si no existe, vacía el namespace e indexa data/
+python ingest.py --keep                  # solo upsert, sin borrar (pueden quedar chunks viejos)
 python ingest.py --chunk-size 400 --chunk-overlap 60 --namespace pruebas
 python ingest.py --debug                 # logs detallados y traza en caso de error
 ```

@@ -3,6 +3,7 @@
 import pytest
 
 from errors import ConfigError, InvalidInputError, UpstreamError
+import retry
 from retry import call_with_retry, is_auth_error, is_retryable
 
 
@@ -106,3 +107,51 @@ def test_rag_errors_are_reraised_unchanged(err):
         call_with_retry(fn, max_retries=5, base_delay=0, sleep=SleepRecorder())
     assert exc_info.value is err
     assert fn.calls == 1
+
+
+class _WrappedEmbeddingError(Exception):
+    """Mimics langchain_google_genai.GoogleGenerativeAIError: no status attribute."""
+
+
+class _ApiError(Exception):
+    """Inner SDK error carrying the HTTP code (like google-genai's APIError)."""
+
+    def __init__(self, code):
+        super().__init__("UNAVAILABLE. The model is overloaded." if code >= 500 else "INVALID_ARGUMENT")
+        self.code = code
+
+
+def _wrapped(code):
+    try:
+        try:
+            raise _ApiError(code)
+        except _ApiError as inner:
+            raise _WrappedEmbeddingError("Error embedding content: see cause") from inner
+    except _WrappedEmbeddingError as outer:
+        return outer
+
+
+def test_wrapped_5xx_error_is_retryable_via_cause_chain():
+    assert retry.is_retryable(_wrapped(503))
+
+
+def test_wrapped_400_error_is_not_retryable():
+    assert not retry.is_retryable(_wrapped(400))
+
+
+def test_number_inside_request_id_does_not_trigger_retry():
+    assert not retry.is_retryable(ValueError("bad request, request-id 84293751"))
+
+
+def test_auth_error_is_never_retried():
+    class AuthErr(Exception):
+        status_code = 401
+    assert not retry.is_retryable(AuthErr("Unauthorized"))
+
+
+def test_upstream_message_only_keeps_first_line():
+    def boom():
+        raise ValueError("first line\nheader: x\nbody: y")
+    with pytest.raises(UpstreamError) as info:
+        retry.call_with_retry(boom, max_retries=0, base_delay=0)
+    assert "header" not in str(info.value)

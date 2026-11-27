@@ -1,6 +1,10 @@
-langchain>=0.3.0
-langchain-google-genai>=2.0.0
-langchain-pinecone>=0.2.0
-langchain-text-splitters>=0.3.0
-pinecone>=5.0.0
-python-dotenv>=1.0.0
+# Versions pinned to the ones verified with Python 3.12 (see README: Instalación).
+langchain-core==1.8.5
+langchain-google-genai==4.5.3
+langchain-pinecone==0.2.13
+langchain-text-splitters==1.2.0
+pinecone==7.3.0
+python-dotenv==1.2.4
+
+# Tests
+pytest==9.2.0

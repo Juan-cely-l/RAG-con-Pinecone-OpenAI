@@ -59,14 +59,15 @@ _LIBRARY_MAX_RETRIES = 1
 def get_embeddings_model(settings: Settings | None = None) -> GoogleGenerativeAIEmbeddings:
     """Create the Gemini embeddings model.
 
-    Note: in the installed langchain-google-genai (4.x) the embeddings class
-    exposes no timeout/retry knobs that are actually honoured, so resilience
-    comes from ``call_with_retry`` around each call.
+    The request timeout is applied to the underlying httpx client via
+    ``client_args`` (``request_options`` is not honoured in 4.x); retries come
+    from ``call_with_retry`` around each call.
     """
     settings = settings or load_settings()
     return GoogleGenerativeAIEmbeddings(
         model=settings.embedding_model,
         google_api_key=settings.google_api_key,
+        client_args={"timeout": settings.request_timeout},
     )
 
 
@@ -521,5 +522,17 @@ def answer_question(
 
     if not answer or _is_no_info(answer):
         return _result(NO_INFO_MESSAGE, True, "llm_insufficient", used)
-    return _result(answer, False, None, used)
+    return _result(ensure_citation(answer, used), False, None, used)
+
+
+def ensure_citation(answer: str, used: list[tuple[Document, float]]) -> str:
+    """Guarantee every non-abstained answer cites at least one used source (spec CA6).
+
+    If the model forgot to cite, append the sources that were in its context.
+    """
+    sources = list(dict.fromkeys(str(doc.metadata.get("source", "unknown")) for doc, _ in used))
+    if any(f"[{src}" in answer or src.rsplit("/", 1)[-1] in answer for src in sources):
+        return answer
+    logger.info("Answer had no citation; appending used sources.")
+    return answer + "\n\nFuentes: " + " ".join(f"[{src}]" for src in sources)
 

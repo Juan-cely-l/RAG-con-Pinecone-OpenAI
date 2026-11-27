@@ -1,7 +1,7 @@
 """Ingestion script for the MMA/UFC RAG demo (local files -> Pinecone).
 
 Usage:
-    python ingest.py [--namespace NS] [--reset] [--chunk-size N] [--chunk-overlap N] [--debug]
+    python ingest.py [--namespace NS] [--reset | --keep] [--chunk-size N] [--chunk-overlap N] [--debug]
 """
 
 from __future__ import annotations
@@ -120,7 +120,7 @@ def build_chunk_ids(chunks: list[Document]) -> list[str]:
 def _is_namespace_not_found(exc: BaseException | None) -> bool:
     while exc is not None:
         status = getattr(exc, "status", None) or getattr(exc, "status_code", None)
-        if status == 404 or "not found" in str(exc).lower():
+        if status == 404 or "namespace not found" in str(exc).lower():
             return True
         exc = exc.__cause__
     return False
@@ -219,7 +219,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Index the local MMA/UFC corpus into Pinecone.")
     parser.add_argument("--namespace", type=str, default=None, help="Pinecone namespace.")
     parser.add_argument(
-        "--reset", action="store_true", help="Delete all vectors in the namespace first."
+        "--reset",
+        action="store_true",
+        default=True,
+        help="Delete all vectors in the namespace before indexing (default) so stale "
+        "chunks never survive a change of chunk size or corpus.",
+    )
+    parser.add_argument(
+        "--keep",
+        dest="reset",
+        action="store_false",
+        help="Do not delete existing vectors (upsert only; stale chunks may remain).",
     )
     parser.add_argument("--chunk-size", type=int, default=None, help="Override RAG_CHUNK_SIZE.")
     parser.add_argument(

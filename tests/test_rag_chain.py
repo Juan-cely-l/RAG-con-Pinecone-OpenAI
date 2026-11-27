@@ -68,7 +68,8 @@ def test_answer_question_returns_full_result_shape():
         "top_score", "sources", "documents", "latency_s",
     }
     assert expected_keys <= set(result)
-    assert result["answer"] == "A 10-8 round shows dominance."
+    assert result["answer"].startswith("A 10-8 round shows dominance.")
+    assert "[data/mma_rules_and_judging.md]" in result["answer"]  # citation enforced (CA6)
     assert result["abstained"] is False and result["abstain_reason"] is None
     assert result["top_score"] == pytest.approx(0.91)
     assert result["sources"] == [
@@ -190,3 +191,19 @@ def test_build_pipeline_fails_when_requested_namespace_is_empty(monkeypatch):
     _patch_factories(monkeypatch, FakePinecone(names=["idx"], stats=stats))
     with pytest.raises(IndexNotReadyError):
         rag_chain.build_rag_pipeline(settings=make_settings(), namespace="rules")
+
+
+def test_ensure_citation_appends_sources_when_missing():
+    from langchain_core.documents import Document
+    import rag_chain
+    used = [(Document(page_content="x", metadata={"source": "data/a.md"}), 0.9)]
+    out = rag_chain.ensure_citation("Respuesta sin cita.", used)
+    assert out.endswith("[data/a.md]")
+
+
+def test_ensure_citation_keeps_answer_that_already_cites():
+    from langchain_core.documents import Document
+    import rag_chain
+    used = [(Document(page_content="x", metadata={"source": "data/a.md"}), 0.9)]
+    answer = "Es así [data/a.md]."
+    assert rag_chain.ensure_citation(answer, used) == answer
